@@ -275,3 +275,119 @@ def test_access_matrix(cli_app, dynamic_permission):
     )
     assert result.exit_code == 0
     assert result.output == ""
+
+
+def test_access_cli_allow_action_for_role_idempotent(cli_app):
+    """Test that allow-action-for-role command is idempotent."""
+    runner = cli_app.test_cli_runner()
+
+    # Create a role
+    result = runner.invoke(roles_create, ["test_role"])
+    assert result.exit_code == 0
+
+    # First allow - should succeed
+    result = runner.invoke(
+        access,
+        ["allow-action-for-role", "--action", "open", "--role", "test_role"],
+    )
+    assert result.exit_code == 0
+
+    # Second allow - should also succeed (idempotent)
+    result = runner.invoke(
+        access,
+        ["allow-action-for-role", "--action", "open", "--role", "test_role"],
+    )
+    assert result.exit_code == 0
+
+    # Verify only one entry exists
+    result = runner.invoke(access, ["show", "-r", "test_role"])
+    assert result.exit_code == 0
+    # Count the number of lines with the action (should be 1)
+    assert result.output.count("role:test_role:open::allow") == 1
+
+
+def test_access_cli_allow_action_for_role_idempotent_with_argument(cli_app):
+    """Test that allow-action-for-role command is idempotent with arguments."""
+    runner = cli_app.test_cli_runner()
+
+    # Create a role
+    result = runner.invoke(roles_create, ["test_role_arg"])
+    assert result.exit_code == 0
+
+    # First allow with argument - should succeed
+    result = runner.invoke(
+        access,
+        [
+            "allow-action-for-role",
+            "--action",
+            "edit",
+            "--role",
+            "test_role_arg",
+            "-a",
+            "resource123",
+        ],
+    )
+    assert result.exit_code == 0
+
+    # Second allow with same argument - should also succeed (idempotent)
+    result = runner.invoke(
+        access,
+        [
+            "allow-action-for-role",
+            "--action",
+            "edit",
+            "--role",
+            "test_role_arg",
+            "-a",
+            "resource123",
+        ],
+    )
+    assert result.exit_code == 0
+
+    # Verify only one entry exists
+    result = runner.invoke(access, ["show", "-r", "test_role_arg"])
+    assert result.exit_code == 0
+    assert result.output.count("role:test_role_arg:edit:resource123:allow") == 1
+
+    # Allow with different argument - should create a new entry
+    result = runner.invoke(
+        access,
+        [
+            "allow-action-for-role",
+            "--action",
+            "edit",
+            "--role",
+            "test_role_arg",
+            "-a",
+            "resource456",
+        ],
+    )
+    assert result.exit_code == 0
+
+    # Verify two entries exist (one for each argument)
+    result = runner.invoke(access, ["show", "-r", "test_role_arg"])
+    assert result.exit_code == 0
+    assert result.output.count("role:test_role_arg:edit:") == 2
+
+
+def test_access_cli_allow_role_deprecated_idempotent(cli_app):
+    """Test that deprecated allow role command is idempotent."""
+    runner = cli_app.test_cli_runner()
+
+    # Create a role
+    result = runner.invoke(roles_create, ["deprecated_role"])
+    assert result.exit_code == 0
+
+    # First allow - should succeed
+    result = runner.invoke(access, ["allow", "open", "role", "deprecated_role"])
+    assert result.exit_code == 0
+
+    # Second allow - should also succeed (idempotent)
+    result = runner.invoke(access, ["allow", "open", "role", "deprecated_role"])
+    assert result.exit_code == 0
+
+    # Verify only one entry exists
+    result = runner.invoke(access, ["show", "-r", "deprecated_role"])
+    assert result.exit_code == 0
+    # Count the number of lines with the action (should be 1)
+    assert result.output.count("role:deprecated_role:open::allow") == 1

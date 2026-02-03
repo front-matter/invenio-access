@@ -118,7 +118,15 @@ def allow_action_for_user(user, action, argument):
 @commit
 def allow_action_for_role(role, action, argument):
     """Allow action for role."""
-    db.session.add(ActionRoles.allow(action, argument=argument, role_id=role.id))
+    # Check if the action-role combination already exists
+    existing = (
+        ActionRoles.query_by_action(action, argument=argument)
+        .filter(ActionRoles.role_id == role.id, ActionRoles.exclude == False)
+        .first()
+    )
+
+    if not existing:
+        db.session.add(ActionRoles.allow(action, argument=argument, role_id=role.id))
 
 
 @access.command()
@@ -272,7 +280,17 @@ def allow_role(role):
     )
 
     def processor(action, argument):
-        db.session.add(ActionRoles.allow(action, argument=argument, role_id=role.id))
+        # Check if the action-role combination already exists
+        existing = (
+            ActionRoles.query_by_action(action, argument=argument)
+            .filter(ActionRoles.role_id == role.id, ActionRoles.exclude == False)
+            .first()
+        )
+
+        if not existing:
+            db.session.add(
+                ActionRoles.allow(action, argument=argument, role_id=role.id)
+            )
 
     return processor
 
